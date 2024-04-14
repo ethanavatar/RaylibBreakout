@@ -58,6 +58,7 @@ struct {
     3
 };
 
+
 void InitBricks(void) {
     for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 20; j++) {
@@ -65,6 +66,7 @@ void InitBricks(void) {
                 j * (brickWidth + brickSpacing) + 10,
                 i * (brickHeight + brickSpacing) + 70
             };
+
             brickRows[i].bricks[j].active = true;
         }
     }
@@ -92,6 +94,7 @@ void StartGame(void) {
         direction,
         -1.0f
     };
+
     ball.speed = 500.0f;
 }
 
@@ -124,6 +127,7 @@ void DoInput(float deltaTime) {
 }
 
 void WallBounce(float deltaTime) {
+    (void) deltaTime;
     if (ball.position.x >= screenWidth - ball.radius) {
         ball.direction.x *= -1;
     }
@@ -145,12 +149,16 @@ void PaddleBounce(float deltaTime) {
         1 
     };
 
-    bool collision = CheckCollisionCircleRec(
-        ball.position,
-        ball.radius,
-        paddleTopRect
-    );
+    float deltaX = ball.direction.x * ball.speed * deltaTime;
+    float deltaY = ball.direction.y * ball.speed * deltaTime;
+    Rectangle ballRect = {
+        ball.position.x - ball.radius + deltaX,
+        ball.position.y - ball.radius + deltaY,
+        ball.radius * 2,
+        ball.radius * 2
+    };
 
+    bool collision = CheckCollisionRecs(paddleTopRect, ballRect);
     if (!collision) {
         return;
     }
@@ -178,28 +186,49 @@ void BrickBounce(float deltaTime) {
                 brickHeight
             };
 
-            bool collision = CheckCollisionCircleRec(
-                ball.position,
-                ball.radius,
-                brickRect
-            );
+            // A collision rectangle representing the ball's position next frame
+            float deltaX = ball.direction.x * ball.speed * deltaTime;
+            float deltaY = ball.direction.y * ball.speed * deltaTime;
+            Rectangle ballRect = {
+                ball.position.x - ball.radius + deltaX,
+                ball.position.y - ball.radius + deltaY,
+                ball.radius * 2,
+                ball.radius * 2
+            };
+
+            bool collision = CheckCollisionRecs(brickRect, ballRect);
 
             if (!collision) {
                 continue;
             }
 
             brickRows[i].bricks[j].active = false;
-            ball.direction.y *= -1;
-            game.score++;
+            game.score += 100;
 
             if (game.score > game.best) {
                 game.best = game.score;
+            }
+
+            bool leftCollision = ballRect.x <= brickRect.x;
+            bool rightCollision = ballRect.x + ballRect.width
+                                >= brickRect.x + brickRect.width;
+            bool topCollision = ballRect.y <= brickRect.y;
+            bool bottomCollision = ballRect.y + ballRect.height
+                                 >= brickRect.y + brickRect.height;
+
+            if (leftCollision || rightCollision) {
+                ball.direction.x *= -1;
+            }
+
+            if (topCollision || bottomCollision) {
+                ball.direction.y *= -1;
             }
         }
     }
 }
 
 void DeathZone(float deltaTime) {
+    (void) deltaTime;
     if (ball.position.y >= screenHeight - ball.radius) {
         game.lives--;
 
@@ -268,11 +297,11 @@ int main(void) {
             DrawRectangleV(paddle.position, paddleRect, MAROON);
             DrawCircleV(ball.position, ball.radius, DARKBLUE);
 
-            char *scoreText = TextFormat("Score: %i", game.score);
+            const char *scoreText = TextFormat("Score: %i", game.score);
             DrawText(scoreText, 10, 10, 20, DARKGRAY);
 
-            char *bestText = TextFormat("Best: %i", game.best);
-            int bestTextWidth = MeasureText(bestText, 20);
+            const char *bestText = TextFormat("Best: %i", game.best);
+            //int bestTextWidth = MeasureText(bestText, 20);
             DrawText(
                 bestText,
                 10, 30 + 10,
@@ -280,7 +309,7 @@ int main(void) {
                 DARKGRAY
             );
 
-            char *livesText = TextFormat("Lives: %i", game.lives);
+            const char *livesText = TextFormat("Lives: %i", game.lives);
             int livesTextWidth = MeasureText(livesText, 20);
             DrawText(
                 livesText,
@@ -290,7 +319,7 @@ int main(void) {
             );
 
             if (game.state == GAME_MENU) {
-                char *message = "Press [Space] to start!";
+                const char *message = "Press [Space] to start!";
                 DrawText(
                     message,
                     screenWidth / 2 - MeasureText(message, 20) / 2,
@@ -299,7 +328,7 @@ int main(void) {
                     GRAY
                 ); 
             } else if (game.state == GAME_OVER) {
-                char *message = "Game Over!";
+                const char *message = "Game Over!";
                 DrawText(
                     message,
                     screenWidth / 2 - MeasureText(message, 20) / 2,
